@@ -42,6 +42,8 @@ if ($systemVendor -eq 'QEMU') {
     # do nothing. Hyper-V enlightments are already bundled with Windows.
 } elseif ($systemVendor -eq 'VMware, Inc.') {
     # do nothing. VMware Tools were already installed by provision-vmtools.ps1 (executed from autounattend.xml).
+} elseif ($systemVendor -eq 'innotek GmbH') {
+    # do nothing. VMware Tools were already installed by provision-vmtools.ps1 (executed from autounattend.xml).
 } else {
     throw "Cannot install Guest Additions: Unsupported system ($systemVendor)."
 }

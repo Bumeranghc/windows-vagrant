@@ -17,3 +17,9 @@ if ($systemVendor -eq 'VMware, Inc.') {
     E:\setup.exe /s /v '/qn reboot=r' `
         | Out-String -Stream
 }
+elseif ($systemVendor -eq 'innotek GmbH') {
+    Write-Output 'Installing VirtualBox Guest Additions...'
+    # silent install without rebooting.
+    E:\VBoxWindowsAdditions.exe /S `
+        | Out-String -Stream
+}

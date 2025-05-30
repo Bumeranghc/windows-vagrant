@@ -231,6 +231,7 @@ $systemVendor = (Get-CimInstance -ClassName Win32_ComputerSystemProduct -Propert
 @(
     if ($systemVendor -eq 'QEMU') { 'provision-guest-tools-qemu-kvm' }
     if ($systemVendor -eq 'VMware, Inc.') { 'provision-vmtools' }
+    if ($systemVendor -eq 'innotek GmbH') { 'provision-vmtools' }
     'provision-winrm'
     'provision-psremoting'
     'provision-openssh'

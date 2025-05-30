@@ -17,7 +17,7 @@ export WINDOWS_2022_ISO_CHECKSUM?= sha256:$(shell jq -r '.["windows-2022"].check
 export WINDOWS_2025_ISO_URL?= $(shell jq -r '.["windows-2025"].url' windows-evaluation-isos.json)
 export WINDOWS_2025_ISO_CHECKSUM?= sha256:$(shell jq -r '.["windows-2025"].checksum' windows-evaluation-isos.json)
 
-# libvirt images.
+# libvirt and VirtualBox images.
 IMAGES+= windows-2022
 IMAGES+= windows-2022-uefi
 IMAGES+= windows-2025
@@ -45,6 +45,7 @@ VSPHERE_IMAGES+= windows-2025
 VSPHERE_IMAGES+= windows-2025-uefi
 
 # Generate the build-* targets.
+VIRTUALBOX_BUILDS= $(addsuffix -virtualbox,$(addprefix build-,$(IMAGES)))
 LIBVIRT_BUILDS= $(addsuffix -libvirt,$(addprefix build-,$(IMAGES)))
 PROXMOX_BUILDS= $(addsuffix -proxmox,$(addprefix build-,$(PROXMOX_IMAGES)))
 HYPERV_BUILDS= $(addsuffix -hyperv,$(addprefix build-,$(HYPERV_IMAGES)))
@@ -54,6 +55,9 @@ VSPHERE_BUILDS= $(addsuffix -vsphere,$(addprefix build-,$(VSPHERE_IMAGES)))
 
 help:
 	@echo Type one of the following commands to build a specific windows box.
+	@echo
+	@echo VirtualBox Targets:
+	@$(addprefix echo make ,$(addsuffix ;,$(VIRTUALBOX_BUILDS)))
 	@echo
 	@echo libvirt targets:
 	@$(addprefix echo make ,$(addsuffix ;,$(LIBVIRT_BUILDS)))
@@ -68,10 +72,24 @@ help:
 	@$(addprefix echo make ,$(addsuffix ;,$(VSPHERE_BUILDS)))
 
 # Target specific pattern rules for build-* targets.
+$(VIRTUALBOX_BUILDS): build-%-virtualbox: %-amd64-virtualbox.box
 $(LIBVIRT_BUILDS): build-%-libvirt: %-amd64-libvirt.box
 $(PROXMOX_BUILDS): build-%-proxmox: %-amd64-proxmox.box
 $(HYPERV_BUILDS): build-%-hyperv: %-amd64-hyperv.box
 $(VSPHERE_BUILDS): build-%-vsphere: %-amd64-vsphere.box
+
+%-amd64-virtualbox.box: %.pkr.hcl %/autounattend.xml Vagrantfile.template *.ps1 drivers
+	rm -f $@
+	CHECKPOINT_DISABLE=1 PACKER_LOG=1 PACKER_LOG_PATH=$*-amd64-virtualbox-packer-init.log \
+		packer init $*.pkr.hcl
+	CHECKPOINT_DISABLE=1 PACKER_LOG=1 PACKER_LOG_PATH=$*-amd64-virtualbox-packer.log PKR_VAR_vagrant_box=$@ \
+		packer build -only=virtualbox-iso.$*-amd64 -on-error=abort $*.pkr.hcl
+	./get-windows-updates-from-packer-log.sh \
+		$*-amd64-virtualbox-packer.log \
+		>$*-amd64-virtualbox-windows-updates.log
+	@echo BOX successfully built!
+	@echo to add to local vagrant install do:
+	@echo vagrant box add -f $*-amd64 $@
 
 %-amd64-libvirt.box: %.pkr.hcl tmp/%/autounattend.xml Vagrantfile.template *.ps1 drivers
 	rm -f $@
@@ -105,6 +123,19 @@ $(VSPHERE_BUILDS): build-%-vsphere: %-amd64-vsphere.box
 		$*-amd64-hyperv-packer.log \
 		>$*-amd64-hyperv-windows-updates.log
 	@./box-metadata.sh hyperv $*-amd64 $@
+
+%-uefi-amd64-virtualbox.box: %-uefi.pkr.hcl %-uefi/autounattend.xml Vagrantfile-uefi.template *.ps1 drivers
+	rm -f $@
+	CHECKPOINT_DISABLE=1 PACKER_LOG=1 PACKER_LOG_PATH=$*-uefi-amd64-virtualbox-packer-init.log \
+		packer init $*.pkr.hcl
+	CHECKPOINT_DISABLE=1 PACKER_LOG=1 PACKER_LOG_PATH=$*-uefi-amd64-virtualbox-packer.log PKR_VAR_vagrant_box=$@ \
+		packer build -only=virtualbox-iso.$*-uefi-amd64 -on-error=abort $*-uefi.pkr.hcl
+	./get-windows-updates-from-packer-log.sh \
+		$*-uefi-amd64-virtualbox-packer.log \
+		>$*-uefi-amd64-virtualbox-windows-updates.log
+	@echo BOX successfully built!
+	@echo to add to local vagrant install do:
+	@echo vagrant box add -f $*-uefi-amd64 $@
 
 %-uefi-amd64-libvirt.box: %-uefi.pkr.hcl tmp/%-uefi/autounattend.xml Vagrantfile-uefi.template *.ps1 drivers
 	rm -f $@

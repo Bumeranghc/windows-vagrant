@@ -241,6 +241,67 @@ exit
 vagrant destroy -f
 ```
 
+## VirtualBox usage
+
+Install Windows Subsystem for Linux (WSL) as described in official [documentation](https://learn.microsoft.com/en-us/windows/wsl/install) and install Ubuntu under WSL.
+
+Install VirtualBox using th official download [source](https://www.virtualbox.org/wiki/Downloads).
+
+In Ubuntu under WSL, install VBoxManage wrapper:
+
+```bash
+sudo su
+mkdir -p /usr/local/bin
+wget -O /usr/local/bin/VBoxManage.sh https://raw.githubusercontent.com/finarfin/wsl-virtualbox/master/VBoxManage.sh
+chmod +x /usr/local/bin/VBoxManage.sh
+ln -s /usr/local/bin/VBoxManage.sh /usr/bin/VBoxManage
+exit
+```
+
+In Ubuntu under WSL, install Vagrant and Packer
+
+```bash
+wget -O - https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install vagrant packer xorriso
+vagrant plugin install virtualbox_WSL2
+packer plugins install github.com/hashicorp/virtualbox
+```
+
+Add to `~/.bashrc` in your Ubuntu under WSL the next lines ath the end of the file. Do not forget to change `<YOUR_USERNAME>` to your real Windows user files folder name.
+
+```
+# Setup Vagrant variables
+export VAGRANT_WSL_ENABLE_WINDOWS_ACCESS="1"
+export VAGRANT_WSL_WINDOWS_ACCESS_USER_HOME_PATH="/mnt/c/Users/<YOUR_USERNAME>/"
+export PATH="$PATH:/mnt/c/Program Files/VirtualBox"
+
+# Setup Packer Variables
+export PACKER_CACHE_DIR="/mnt/c/Users/<YOUR_USERNAME>/.cache/packer"
+export TMPDIR="/mnt/c/Users/<YOUR_USERNAME>/AppData/Local/Temp"
+```
+
+Edit under your Windows environment file `~/.wslconfig` adding there these lines:
+
+```
+[wsl2]
+networkingMode=mirrored
+
+[experimental]
+hostAddressLoopback=true
+```
+
+Restart WSL:
+
+```
+wsl --shutdown
+```
+
+Create the template under WSL Ubuntu environment:
+
+```bash
+make make build-windows-2025-uefi-virtualbox
+```
 
 ## VMware vSphere
 
