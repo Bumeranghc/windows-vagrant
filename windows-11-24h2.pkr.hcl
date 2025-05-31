@@ -20,6 +20,11 @@ packer {
       version = "1.1.5"
       source  = "github.com/hashicorp/vagrant"
     }
+    # see https://github.com/hashicorp/virtualbox
+    virtualbox = {
+      version = "1.1.2"
+      source  = "github.com/hashicorp/virtualbox"
+    }
     # see https://github.com/rgl/packer-plugin-windows-update
     windows-update = {
       version = "0.16.10"
@@ -60,6 +65,63 @@ variable "hyperv_vlan_id" {
 
 variable "vagrant_box" {
   type = string
+}
+
+variable "virtual_box_ssh_host_port" {
+  type = number
+  default = 2222
+}
+
+source "virtualbox-iso" "windows-11-24h2-amd64" {
+  cpus      = 2
+  memory    = 4096
+  disk_size = var.disk_size
+  cd_files = [
+    "windows-11-24h2/virtualbox/autounattend.xml",
+    "provision-autounattend.ps1",
+    "provision-openssh.ps1",
+    "provision-psremoting.ps1",
+    "provision-pwsh.ps1",
+    "provision-vmtools.ps1",
+    "provision-winrm.ps1",
+  ]
+  guest_additions_interface = "sata"
+  guest_additions_mode      = "attach"
+  guest_os_type             = "Windows2025_64"
+  hard_drive_interface      = "sata"
+  headless                  = true
+  iso_url                   = var.iso_url
+  iso_checksum              = var.iso_checksum
+  iso_interface             = "sata"
+  shutdown_command          = "shutdown /s /t 0 /f /d p:4:1 /c \"Packer Shutdown\""
+  vboxmanage = [
+    ["storagectl", "{{ .Name }}", "--name", "IDE Controller", "--remove"],
+    ["modifyvm", "{{.Name}}", "--firmware", "efi"],
+    ["modifyvm", "{{ .Name }}", "--vrde", "off"],
+    ["modifyvm", "{{ .Name }}", "--graphicscontroller", "vboxsvga"],
+    ["modifyvm", "{{ .Name }}", "--vram", "128"],
+    ["modifyvm", "{{ .Name }}", "--accelerate3d", "on"],
+    ["modifyvm", "{{ .Name }}", "--usb", "on"],
+    ["modifyvm", "{{ .Name }}", "--mouse", "usbtablet"],
+    ["modifyvm", "{{ .Name }}", "--audio", "none"],
+    ["modifyvm", "{{ .Name }}", "--nictype1", "82540EM"],
+    ["modifyvm", "{{ .Name }}", "--nictype2", "82540EM"],
+    ["modifyvm", "{{ .Name }}", "--nictype3", "82540EM"],
+    ["modifyvm", "{{ .Name }}", "--nictype4", "82540EM"],
+    ["modifyvm", "{{ .Name }}", "--hpet", "on"],
+    ["modifyvm", "{{ .Name }}", "--natpf1", "delete", "packercomm"],
+    ["modifyvm", "{{ .Name }}", "--natpf1", "packercomm,tcp,0.0.0.0,${var.virtual_box_ssh_host_port},,22"],
+    ["modifyvm", "{{ .Name }}", "--natpf1", "packercomm_wsl,tcp,127.0.0.1,${var.virtual_box_ssh_host_port},,22"],
+    ["modifyvm", "{{ .Name }}", "--natpf1", "packercomm_wsl_2,tcp,,${var.virtual_box_ssh_host_port},,22"]
+  ]
+  boot_wait      = "3s"
+  boot_command   = ["<up><wait><up><wait><up><wait><up><wait><up><wait><up><wait><up><wait><up><wait><up><wait><up><wait>"]
+  communicator   = "ssh"
+  ssh_username   = "vagrant"
+  ssh_password   = "vagrant"
+  ssh_timeout    = "4h"
+  ssh_host_port_min = var.virtual_box_ssh_host_port
+  ssh_host_port_max = var.virtual_box_ssh_host_port
 }
 
 source "qemu" "windows-11-24h2-amd64" {
@@ -240,6 +302,7 @@ build {
     "source.qemu.windows-11-24h2-amd64",
     "source.proxmox-iso.windows-11-24h2-amd64",
     "source.hyperv-iso.windows-11-24h2-amd64",
+    "source.virtualbox-iso.windows-11-24h2-amd64",
   ]
 
   provisioner "powershell" {
@@ -263,6 +326,7 @@ build {
   }
 
   provisioner "windows-restart" {
+    restart_timeout = "30m"
   }
 
   provisioner "powershell" {
